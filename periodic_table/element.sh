@@ -1,41 +1,32 @@
 #!/bin/bash
-
-PSQL="psql --username=freecodecamp --dbname=periodic_table -t --no-align -c"
+# element.sh - freeCodeCamp Periodic Table solution
+PSQL="psql --username=freecodecamp --dbname=periodic_table -t -A -F '|' -c"
 
 if [[ -z $1 ]]
 then
-  echo "Please provide an element as an argument."
-  exit
+  echo "Please provide an element as an argument"
+  exit 0
 fi
 
-ARG=$1
+INPUT="$1"
 
-# If argument is number
-if [[ $ARG =~ ^[0-9]+$ ]]
+# Determine whether input is atomic number (integer) or symbol/name
+if [[ $INPUT =~ ^[0-9]+$ ]]
 then
-  CONDITION="e.atomic_number = $ARG"
-# If argument is symbol (1–2 letters)
-elif [[ $ARG =~ ^[A-Za-z]{1,2}$ ]]
-then
-  CONDITION="e.symbol = '$ARG'"
-# Otherwise assume name
+  QUERY="SELECT e.atomic_number,e.symbol,e.name,t.type,p.atomic_mass,p.melting_point_celsius,p.boiling_point_celsius FROM elements e JOIN properties p ON e.atomic_number=p.atomic_number JOIN types t ON p.type_id=t.type_id WHERE e.atomic_number=$INPUT;"
 else
-  CONDITION="e.name = '$ARG'"
+  # Use ILIKE for case-insensitive match
+  QUERY="SELECT e.atomic_number,e.symbol,e.name,t.type,p.atomic_mass,p.melting_point_celsius,p.boiling_point_celsius FROM elements e JOIN properties p ON e.atomic_number=p.atomic_number JOIN types t ON p.type_id=t.type_id WHERE e.symbol ILIKE '$INPUT' OR e.name ILIKE '$INPUT';"
 fi
 
-ELEMENT=$($PSQL "SELECT e.atomic_number, e.name, e.symbol, t.type, p.atomic_mass, p.melting_point_celsius, p.boiling_point_celsius 
-FROM elements e
-JOIN properties p ON e.atomic_number = p.atomic_number
-JOIN types t ON p.type_id = t.type_id
-WHERE $CONDITION;")
+RESULT=$($PSQL "$QUERY")
 
-if [[ -z $ELEMENT ]]
+if [[ -z $RESULT ]]
 then
   echo "I could not find that element in the database."
-  exit
+  exit 0
 fi
 
-IFS="|" read ATOMIC_NUMBER NAME SYMBOL TYPE MASS MELT BOIL <<< "$ELEMENT"
+IFS='|' read -r ATOMIC_NUMBER SYMBOL NAME TYPE ATOMIC_MASS MELTING BOILING <<< "$RESULT"
 
-echo "The element with atomic number $ATOMIC_NUMBER is $NAME ($SYMBOL). It's a $TYPE, with a mass of $MASS amu. $NAME has a melting point of $MELT celsius and a boiling point of $BOIL celsius."
-
+echo "The element with atomic number $ATOMIC_NUMBER is $NAME ($SYMBOL). It's a $TYPE, with a mass of $ATOMIC_MASS amu. $NAME has a melting point of $MELTING celsius and a boiling point of $BOILING celsius."
